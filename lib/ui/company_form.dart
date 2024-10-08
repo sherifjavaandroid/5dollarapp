@@ -34,7 +34,9 @@ class _CompanyFormState extends State<CompanyForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.company == null ? 'Create Company' : 'Update Company')),
+      appBar: AppBar(
+        title: Text(widget.company == null ? 'Create Company' : 'Update Company'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(

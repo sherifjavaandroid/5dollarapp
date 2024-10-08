@@ -16,22 +16,13 @@ class CompanyInitial extends CompanyState {}
 
 class CompanyLoading extends CompanyState {}
 
-class CompanyLoaded extends CompanyState {
-  final Company company;
+class CompaniesLoaded extends CompanyState {
+  final List<Company> companies;
 
-  const CompanyLoaded(this.company);
-
-  @override
-  List<Object> get props => [company];
-}
-
-class CompanyDeleted extends CompanyState {
-  final DeleteResult result;
-
-  const CompanyDeleted(this.result);
+  const CompaniesLoaded(this.companies);
 
   @override
-  List<Object> get props => [result];
+  List<Object> get props => [companies];
 }
 
 class CompanyCreated extends CompanyState {
@@ -52,6 +43,15 @@ class CompanyUpdated extends CompanyState {
   List<Object> get props => [result];
 }
 
+class CompanyDeleted extends CompanyState {
+  final DeleteResult result;
+
+  const CompanyDeleted(this.result);
+
+  @override
+  List<Object> get props => [result];
+}
+
 class CompanyError extends CompanyState {
   final String message;
 
@@ -59,4 +59,13 @@ class CompanyError extends CompanyState {
 
   @override
   List<Object> get props => [message];
+}
+class CompanyUpdatedButNotReflected extends CompanyState {
+  final UpdateResult result;
+  final Company updatedCompany;
+
+  const CompanyUpdatedButNotReflected(this.result, this.updatedCompany);
+
+  @override
+  List<Object> get props => [result, updatedCompany];
 }

@@ -4,10 +4,13 @@ class CreateResult {
 
   CreateResult({required this.id, required this.message});
 
-  factory CreateResult.fromJson(Map<String, dynamic> json) {
+  factory CreateResult.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return CreateResult(id: '', message: 'Creation successful, but no details returned');
+    }
     return CreateResult(
-      id: json['id'],
-      message: json['message'],
+      id: json['id'] ?? '',
+      message: json['message'] ?? 'Creation successful',
     );
   }
 }

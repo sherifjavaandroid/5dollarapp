@@ -4,11 +4,13 @@ class DeleteResult {
 
   DeleteResult({required this.message, this.rowsAffected});
 
-  factory DeleteResult.fromJson(Map<String, dynamic> json) {
+  factory DeleteResult.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return DeleteResult(message: 'Deletion successful, but no details returned');
+    }
     return DeleteResult(
-      message: json['message'],
+      message: json['message'] ?? 'Deletion successful',
       rowsAffected: json['rows_affected'],
     );
   }
-
 }
