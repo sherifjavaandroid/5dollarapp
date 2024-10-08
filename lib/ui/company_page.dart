@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'dart:developer' as developer;
 import '../logic/bloc/company_bloc.dart';
 import '../logic/bloc/company_event.dart';
 import '../logic/bloc/company_state.dart';
@@ -7,11 +10,10 @@ import '../model/company.dart';
 import 'company_form.dart';
 
 class CompanyPage extends StatelessWidget {
-  const CompanyPage({Key? key}) : super(key: key);
+  const CompanyPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Fetch companies when the page is first built
     context.read<CompanyBloc>().add(FetchCompanies());
 
     return Scaffold(
@@ -51,8 +53,8 @@ class CompanyPage extends StatelessWidget {
           } else if (state is CompanyUpdatedButNotReflected) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Update successful, but changes may not be immediately visible. Please refresh.'),
-                duration: Duration(seconds: 5),
+                content: const Text('Update successful, but changes may not be immediately visible. Please refresh.'),
+                duration: const Duration(seconds: 5),
                 action: SnackBarAction(
                   label: 'Refresh',
                   onPressed: () {
@@ -70,7 +72,7 @@ class CompanyPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Error: ${state.message}'),
-                duration: Duration(seconds: 5),
+                duration: const Duration(seconds: 5),
                 action: SnackBarAction(
                   label: 'Retry',
                   onPressed: () {
@@ -96,6 +98,7 @@ class CompanyPage extends StatelessWidget {
                   return ListTile(
                     title: Text(company.nameE),
                     subtitle: Text(company.addressE),
+                    leading: _buildCompanyLogo(company.logo),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -134,7 +137,7 @@ class CompanyPage extends StatelessWidget {
                     onPressed: () {
                       context.read<CompanyBloc>().add(FetchCompanies());
                     },
-                    child: Text('Retry'),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
@@ -146,6 +149,60 @@ class CompanyPage extends StatelessWidget {
     );
   }
 
+  Widget _buildCompanyLogo(String logoUrl) {
+    return FutureBuilder<bool>(
+      future: _checkCacheManagerAvailability(),
+      builder: (context, snapshot) {
+        if (snapshot.data == true) {
+          return CachedNetworkImage(
+            imageUrl: logoUrl,
+            imageBuilder: (context, imageProvider) => CircleAvatar(
+              backgroundImage: imageProvider,
+            ),
+            placeholder: (context, url) => const CircularProgressIndicator(),
+            errorWidget: (context, url, error) {
+              developer.log('Error loading image: $error', name: 'CompanyPage');
+              return _buildFallbackImage(logoUrl);
+            },
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          );
+        } else {
+          return _buildFallbackImage(logoUrl);
+        }
+      },
+    );
+  }
+  Widget _buildFallbackImage(String logoUrl) {
+    return CircleAvatar(
+      child: Image.network(
+        logoUrl,
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const CircularProgressIndicator();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          developer.log('Error loading fallback image: $error', name: 'CompanyPage');
+          return const Icon(Icons.error, color: Colors.red);
+        },
+      ),
+    );
+  }
+
+  Future<bool> _checkCacheManagerAvailability() async {
+    try {
+      final cacheManager = DefaultCacheManager();
+      await cacheManager.getFileFromCache("test");
+      return true;
+    } catch (e) {
+      developer.log('CacheManager not available: $e', name: 'CompanyPage');
+      return false;
+    }
+  }
   void _showDeleteConfirmationDialog(BuildContext context, Company company) {
     showDialog(
       context: context,
@@ -183,29 +240,107 @@ class CompanyPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('ID: ${company.id}'),
-              Text('Name (Arabic): ${company.nameA}'),
-              Text('Name (English): ${company.nameE}'),
-              Text('Address (Arabic): ${company.addressA}'),
-              Text('Address (English): ${company.addressE}'),
+              _buildInfoRow('ID', company.id ?? ''),
+              _buildInfoRow('Name (Arabic)', company.nameA),
+              _buildInfoRow('Name (English)', company.nameE),
+              _buildInfoRow('Address (Arabic)', company.addressA),
+              _buildInfoRow('Address (English)', company.addressE),
               const SizedBox(height: 16),
-              Image.network(
-                company.logo,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                        : null,
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Text('Error loading image: $error');
-                },
-              ),
+              _buildInfoRow('Logo URL', company.logo),
+              const SizedBox(height: 16),
+              _buildDetailedCompanyLogo(company.logo),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+
+  Widget _buildDetailedCompanyLogo(String logoUrl) {
+    return FutureBuilder<bool>(
+      future: _checkCacheManagerAvailability(),
+      builder: (context, snapshot) {
+        if (snapshot.data == true) {
+          return CachedNetworkImage(
+            imageUrl: logoUrl,
+            placeholder: (context, url) => const Column(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 8),
+                Text('Loading image...'),
+              ],
+            ),
+            errorWidget: (context, url, error) {
+              developer.log('Error loading detailed image: $error', name: 'CompanyPage');
+              return Column(
+                children: [
+                  const Icon(Icons.error, color: Colors.red),
+                  const SizedBox(height: 8),
+                  Text('Failed to load image: $error'),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      CachedNetworkImage.evictFromCache(logoUrl);
+                      Navigator.of(context).pop();
+                      _showCompanyDetails(context, Company(id: '', nameA: '', nameE: '', addressA: '', addressE: '', logo: logoUrl));
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              );
+            },
+            width: 200,
+            fit: BoxFit.contain,
+          );
+        } else {
+          return Image.network(
+            logoUrl,
+            width: 200,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 8),
+                  Text('Loading image...'),
+                ],
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              developer.log('Error loading detailed fallback image: $error', name: 'CompanyPage');
+              return Column(
+                children: [
+                  const Icon(Icons.error, color: Colors.red),
+                  const SizedBox(height: 8),
+                  Text('Failed to load image: $error'),
+                ],
+              );
+            },
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
       ),
     );
   }
